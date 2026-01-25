@@ -1,0 +1,150 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(JOB_SEEKER)
+  createdAt    DateTime      @default(now())
+
+  profile      Profile?      // User's profile
+  jobs         Job[]         // Recruiter's posted jobs
+  applications Application[] // Job Seeker's applications
+  savedJobs    SavedJob[]    // Job Seeker's saved jobs
+}
+
+enum Role {
+  JOB_SEEKER
+  RECRUITER
+  ADMIN
+}
+
+model Job {
+  id           String        @id @default(uuid())
+  title        String
+  company      String
+  location     String
+  type         JobType       @default(FULL_TIME)
+  salary       String
+  description  String
+  requirements String?
+  createdAt    DateTime      @default(now())
+
+  recruiterId  String
+  recruiter    User          @relation(fields: [recruiterId], references: [id])
+
+  applications Application[]
+  savedBy      SavedJob[]
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  REMOTE
+}
+
+model Application {
+  id          String            @id @default(uuid())
+  coverLetter String?
+  status      ApplicationStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+
+  jobId       String
+  job         Job               @relation(fields: [jobId], references: [id])
+
+  @@unique([userId, jobId]) // One application per job per user
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  ACCEPTED
+  REJECTED
+}
+
+model SavedJob {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+
+  @@unique([userId, jobId]) // Can save a job only once
+}
+
+// ==================== PROFILE MODELS ====================
+
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  name      String?
+  headline  String?   // "Senior React Developer | 5+ Years"
+  location  String?
+  phone     String?
+  about     String?   @db.Text
+  avatar    String?   // URL
+
+  skills    String[]  // ["React", "Node.js", "Python"]
+
+  resume           String?   // URL
+  resumeName       String?
+  resumeUpdatedAt  DateTime?
+
+  experiences  Experience[]
+  education    Education[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Experience {
+  id          String   @id @default(uuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  title       String
+  company     String
+  location    String?
+  startDate   String   // "2022-01"
+  endDate     String?
+  current     Boolean  @default(false)
+  description String?  @db.Text
+
+  createdAt   DateTime @default(now())
+}
+
+model Education {
+  id           String   @id @default(uuid())
+  profileId    String
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  institution  String
+  degree       String
+  fieldOfStudy String
+  startYear    String
+  endYear      String?
+  grade        String?
+
+  createdAt    DateTime @default(now())
+}
