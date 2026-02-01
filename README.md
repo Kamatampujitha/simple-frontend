@@ -125,3 +125,27 @@ So you can run a frontend locally and call this API.
 - **Port already in use (`EADDRINUSE`)**: change `PORT` in `.env`, or stop the process using port `4000`.
 - **Prisma connection errors**: verify Postgres is running and `DATABASE_URL` is correct.
 
+
+
+Windows (VS Code Terminal) DB setup — copy/paste commands
+In VS Code, open Terminal → New Terminal and choose PowerShell (recommended).
+1) Start PostgreSQL (Docker)
+docker run --name jobportal-postgres `  -e POSTGRES_USER=postgres `  -e POSTGRES_PASSWORD=postgres `  -e POSTGRES_DB=jobportal_dev `  -p 5432:5432 `  -d postgres:14
+Check it’s running:
+docker ps
+2) Setup backend
+git clone <REPO_URL>cd simple-backendnpm installcopy .env.example .env
+Edit .env and keep this:
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jobportal_dev"JWT_SECRET="change-me-to-a-long-random-string"PORT=4000
+3) Create tables (Prisma)
+npx prisma generatenpx prisma db push
+4) Run backend
+npm start
+Verify:
+http://localhost:4000/health
+Next time (daily use)
+Start DB:
+docker start jobportal-postgres
+Stop DB:
+docker stop jobportal-postgres
+
