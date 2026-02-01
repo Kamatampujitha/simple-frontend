@@ -35,6 +35,7 @@ model Job {
   title        String
   company      String
   location     String
+  category     JobCategory   @default(fullstack)
   type         JobType       @default(FULL_TIME)
   salary       String
   description  String
@@ -54,6 +55,12 @@ enum JobType {
   CONTRACT
   INTERNSHIP
   REMOTE
+}
+
+enum JobCategory {
+  frontend
+  backend
+  fullstack
 }
 
 model Application {

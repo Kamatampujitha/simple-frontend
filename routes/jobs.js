@@ -5,10 +5,29 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
+const JOB_CATEGORIES = ['frontend', 'backend', 'fullstack'];
+
+function normalizeCategory(input) {
+  if (typeof input !== 'string') return null;
+  const value = input.trim().toLowerCase();
+  if (!value) return null;
+  if (!JOB_CATEGORIES.includes(value)) return null;
+  return value;
+}
+
 // GET /jobs - Get all jobs (Public)
 router.get('/', async (req, res) => {
   try {
+    const roleQuery = req.query.role ?? req.query.category;
+    const category = normalizeCategory(roleQuery);
+    if (roleQuery != null && category == null) {
+      return res.status(400).json({
+        message: `Invalid role. Use one of: ${JOB_CATEGORIES.join(', ')}`
+      });
+    }
+
     const jobs = await prisma.job.findMany({
+      ...(category ? { where: { category } } : {}),
       include: {
         recruiter: {
           select: { id: true, name: true, email: true }
@@ -67,6 +86,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', authMiddleware, requireRole('RECRUITER'), async (req, res) => {
   try {
     const { title, company, location, type, salary, description, requirements } = req.body;
+    const category =
+      normalizeCategory(req.body.role ?? req.body.category) ?? 'fullstack';
 
     console.log('📥 Create job request:', { title, company });
 
@@ -80,6 +101,7 @@ router.post('/', authMiddleware, requireRole('RECRUITER'), async (req, res) => {
         title,
         company,
         location,
+        category,
         type: type || 'FULL_TIME',
         salary,
         description,
@@ -110,9 +132,21 @@ router.put('/:id', authMiddleware, requireRole('RECRUITER'), async (req, res) =>
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    const updateData = { ...req.body };
+    // Support role/category updates while avoiding Prisma "unknown argument" errors.
+    const maybeCategory = normalizeCategory(updateData.role ?? updateData.category);
+    if ((updateData.role != null || updateData.category != null) && !maybeCategory) {
+      return res.status(400).json({
+        message: `Invalid role. Use one of: ${JOB_CATEGORIES.join(', ')}`
+      });
+    }
+    delete updateData.role;
+    delete updateData.category;
+    if (maybeCategory) updateData.category = maybeCategory;
+
     const updated = await prisma.job.update({
       where: { id: req.params.id },
-      data: req.body
+      data: updateData
     });
 
     console.log('✅ Job updated:', { id: updated.id, title: updated.title });
